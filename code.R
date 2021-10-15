@@ -1,6 +1,5 @@
-setwd("/raid1/hccline");options(stringsAsFactors = F);library(WGCNA);enableWGCNAThreads(12)
+setwd("/hccnetwork");options(stringsAsFactors = F);library(WGCNA);enableWGCNAThreads(12)
 data=read.table("limor.fpkm.log2.txt",header=T,row.names = 1)[,-c(1:2)]
-
 #filter FPKM <10
 aa=apply(data,1,mean);data=subset(data,aa>3.323)
 data=as.matrix(apply(data,2,rank, ties.method= "max"))
@@ -12,44 +11,32 @@ GeneName= datSummary
 ArrayName= colnames(data)
 powers=c(seq(1,10,by=1),seq(12,18,by=2));
 sft=pickSoftThreshold(datExpr, powerVector=powers,networkType ="signed",corFnc =cor, corOptions =list(use = 'p'))
-#sft=pickSoftThreshold(datExpr, powerVector=powers,networkType = "signed",corFnc = bicor,corOptions = list(maxPOutliers =0.1))
 RpowerTable=sft[[2]]
 sizeGrWindow(9, 5);
 pdf('choosing power.pdf');
 par(mfrow = c(1,2));cex1 = 0.9;
-plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
-     xlab="Soft Threshold (power)",
-     ylab="Scale Free Topology Model Fit,signed R^2",type="n",
+plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],     xlab="Soft Threshold (power)",     ylab="Scale Free Topology Model Fit,signed R^2",type="n",
      main = paste("Scale independence"));
-text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
-     labels=powers,cex=cex1,col="red");
+text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],     labels=powers,cex=cex1,col="red");
 abline(h=0.90,col="red");
 dev.off()
 # Mean connectivity as a function of the soft-thresholding power
 sizeGrWindow(9, 5);
 pdf('mean connectivity.pdf');
-plot(sft$fitIndices[,1], sft$fitIndices[,5],xlab="Soft Threshold (power)",
-     ylab="Mean Connectivity", type="n",main = paste("Mean connectivity"))
+plot(sft$fitIndices[,1], sft$fitIndices[,5],xlab="Soft Threshold (power)",     ylab="Mean Connectivity", type="n",main = paste("Mean connectivity"))
 text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red");
 dev.off()
 softPower =12
 Connectivity=softConnectivity(datExpr,corFnc = "cor", corOptions ="use = 'p'",power=softPower,type="signed")
-#Connectivity=softConnectivity(datExpr,corFnc = "bicor", corOptions =list(maxPOutliers =0.1),
-#power=softPower,type="signed")
 pdf("scale-free.pdf");
 scaleFreePlot(Connectivity,nBreaks = 10,truncated = FALSE,removeFirst = FALSE, main = "");
 dev.off()
-adjacency = adjacency(datExpr,corFnc = "cor", corOptions ="use = 'p'",
-                      type = "signed", power = softPower)
-#adjacency = adjacency(datExpr,corFnc = "bicor", corOptions =list(maxPOutliers =0.1),
-#                      type = "signed", power = softPower)
-TOM = TOMsimilarity(adjacency,TOMType="signed");dissTOM = 1-TOM
-#method="complete"  ?
-geneTree = hclust(as.dist(dissTOM), method = "average")#高版本已经用hclust
+adjacency = adjacency(datExpr,corFnc = "cor", corOptions ="use = 'p'",type = "signed", power = softPower)
+TOM = TOMsimilarity(adjacency,TOMType="signed")
+dissTOM = 1-TOM
+geneTree = hclust(as.dist(dissTOM), method = "average")
 minModuleSize =30;
-dynamicMods = cutreeDynamic(dendro = geneTree, distM = dissTOM,deepSplit = 0, 
-                            pamRespectsDendro = FALSE,minClusterSize = minModuleSize,
-                            cutHeight=0.99);
+dynamicMods = cutreeDynamic(dendro = geneTree, distM = dissTOM,deepSplit = 0,  pamRespectsDendro = FALSE,minClusterSize = minModuleSize,  cutHeight=0.99);
 table(dynamicMods)
 dynamicColors = labels2colors(dynamicMods)
 table(dynamicColors)
@@ -57,7 +44,7 @@ table(dynamicColors)
 MEList = moduleEigengenes(datExpr, colors = dynamicMods)
 MEs = MEList$eigengenes
 MEDiss = 1-cor(MEs);
-METree = hclust(as.dist(MEDiss), method = "average");#
+METree = hclust(as.dist(MEDiss), method = "average");
 sizeGrWindow(7, 6)
 plot(METree, main = "Clustering of module eigengenes",xlab = "", sub = "")
 MEDissThres = 0.2
@@ -67,57 +54,50 @@ mergedColors = merge$colors;
 mergedMEs = merge$newMEs;
 sizeGrWindow(12, 9)
 pdf("DendroAndColors.pdf")
-plotDendroAndColors(geneTree, cbind(dynamicMods, mergedColors),
-                    c("Dynamic Tree Cut", "Merged dynamic"),dendroLabels = FALSE, 
-                    hang = 0.03,addGuide = TRUE, guideHang = 0.05)
+plotDendroAndColors(geneTree, cbind(dynamicMods, mergedColors), c("Dynamic Tree Cut", "Merged dynamic"),dendroLabels = FALSE,   hang = 0.03,addGuide = TRUE, guideHang = 0.05)
 dev.off()
 moduleColors = mergedColors
 colorOrder = c("grey", standardColors(unique(moduleColors)));
 moduleLabels = match(moduleColors, colorOrder)-1;
 MEs = mergedMEs;
 MEDiss = 1-cor(MEs);
-METree = hclust(as.dist(MEDiss), method = "average");#
+METree = hclust(as.dist(MEDiss), method = "average")
 pdf("METree.pdf")
 plot(METree, main = "Clustering of module eigengenes",xlab = "", sub = "")
 dev.off()
 MEList = moduleEigengenes(datExpr, colors = dynamicMods)
 nSamples=nrow(datExpr)
 geneModuleMembership = as.data.frame(cor(datExpr, MEs, use = "p"));
-MMPvalue = cbind.data.frame(datSummary,corPvalueStudent(as.matrix(geneModuleMembership), 
-                                                        nSamples));
+MMPvalue = cbind.data.frame(datSummary,corPvalueStudent(as.matrix(geneModuleMembership), nSamples));
 write.table(data.frame(ArrayName,MEs),"MEs.csv",row.name=F)
 kMEdat=data.frame(geneModuleMembership,MMPvalue)
 write.table(data.frame(datSummary,kMEdat),"kME-MMPvalue.csv",row.names=FALSE)
 k.in=intramodularConnectivity(adjacency(datExpr,corFnc = "cor", corOptions = "use ='p'",type = "signed", power = softPower),moduleColors,scaleByMax = FALSE)
-#k.in=intramodularConnectivity(adjacency(datExpr,corFnc = "bicor", corOptions =list(maxPOutliers =0.1),type = "signed", power = softPower),moduleColors,scaleByMax = FALSE)
-
 datout=data.frame(datSummary, colorNEW=moduleColors, k.in)
 write.table(datout, file="OutputCancerNetwork.csv", sep=",", row.names=F)
 hubs    = chooseTopHubInEachModule(datExpr, moduleColors)
-write.csv(data.frame(module=names(hubs),moduleColor=c("grey",standardColors(length(hubs)-1)),hub=hubs),
-          "num2color.csv",row.names=F)
+write.csv(data.frame(module=names(hubs),moduleColor=c("grey",standardColors(length(hubs)-1)),hub=hubs), "num2color.csv",row.names=F)
 
 gene=read.csv("OutputCancerNetwork.csv",header=T)
 library(gProfileR)
 for (i in unique(gene$colorNEW)[-4]){
   genes=subset(gene$datSummary,gene$colorNEW==i)
-  go=gprofiler(as.vector(genes), 
-               organism = "hsapiens",numeric_ns="ENTREZGENE_ACC")[,-14]
+  go=gprofiler(as.vector(genes), organism = "hsapiens",numeric_ns="ENTREZGENE_ACC")[,-14]
   write.table(go,"module_enrichment.csv",append =T,row.names=rep(i,nrow(go)),sep=",")}
 
-moduleColors=gene$colorNEW #keep gene order same between gene and dat0
+moduleColors=gene$colorNEW 
 modules=unique(moduleColors)
 n=length(modules)
 pb <- txtProgressBar(min = 0, max = n, style = 3)
 for (p in (1:n)[-4]){
   inModule = is.finite(match(moduleColors, modules[p]));
-  dat2=data.frame(t(datExpr))[inModule,] #make sure it is matrix data
+  dat2=data.frame(t(datExpr))[inModule,] 
   resamples=lapply(1:1000,function(i) a=t(sample(dat2[,1:nSamples],round(nSamples/2),replace=F)))
-  K1=sapply(resamples,softConnectivity,power= softPower,type="signed") #,type="signed"?
-  K=softConnectivity(t(dat2[,1:nSamples]),power= softPower,type="signed") #,type="signed"
+  K1=sapply(resamples,softConnectivity,power= softPower,type="signed")
+  K=softConnectivity(t(dat2[,1:nSamples]),power= softPower,type="signed")
   #outfile=paste(modules[p],"-edit.txt",sep="")
   write.table(data.frame(mean(cor(K,K1)),apply(cor(K,K1),1,sd)), file = "module-stability-5.csv", row.names = modules[p], append = TRUE, col.names = FALSE, sep = ", ")
-  setTxtProgressBar(pb, p)}#所有loop结果写到一个文件
+  setTxtProgressBar(pb, p)}
 close(pb) 
 
 #automatic finish the Cytoscape mods exporting
@@ -129,7 +109,6 @@ inModule = is.finite(match(moduleColors,modules));modProbes = probes[inModule];
 modTOM = TOM[inModule, inModule];dimnames(modTOM) = list(modProbes, modProbes)
 cyt = exportNetworkToCytoscape(modTOM,
                                edgeFile = paste("CytoscapeInput-edges-", paste(modules, collapse="-"), ".txt", sep=""),
-                               #nodeFile = paste("CytoscapeInput-nodes-", paste(modules, collapse="-"), ".txt", sep=""),
                                weighted = TRUE,threshold = quantile(abs(modTOM),probs=0.8),nodeNames = modProbes ,nodeAttr = moduleColors[inModule]);
 setTxtProgressBar(pb, p)}
 close(pb)
@@ -160,11 +139,8 @@ print( cbind(statsObs[, c("medianRank.pres", "medianRank.qual")],signif(statsZ[,
 modColors = rownames(mp$preservation$observed[[ref]][[test]])
 moduleSizes = mp$preservation$Z[[ref]][[test]][, 1];
 
-
-# ??ͼleave grey and gold modules out
 plotMods = !(modColors %in% c("grey", "gold"));
 # Text labels for points
-#text = modColors[plotMods];
 labs = match(modColors[plotMods], standardColors(unique(modColors)-2))
 # Auxiliary convenience variable
 plotData = cbind(mp$preservation$observed[[ref]][[test]][, 2], mp$preservation$Z[[ref]][[test]][, 2])
@@ -278,11 +254,8 @@ print( cbind(statsObs[, c("medianRank.pres", "medianRank.qual")],signif(statsZ[,
 modColors = rownames(mp$preservation$observed[[ref]][[test]])
 moduleSizes = mp$preservation$Z[[ref]][[test]][, 1];
 
-
-# ??ͼleave grey and gold modules out
 plotMods = !(modColors %in% c("grey", "gold"));
 # Text labels for points
-#text = modColors[plotMods];
 labs = match(modColors[plotMods], standardColors(unique(modColors)-2))
 # Auxiliary convenience variable
 plotData = cbind(mp$preservation$observed[[ref]][[test]][, 2], mp$preservation$Z[[ref]][[test]][, 2])
@@ -399,11 +372,8 @@ print( cbind(statsObs[, c("medianRank.pres", "medianRank.qual")],signif(statsZ[,
 modColors = rownames(mp$preservation$observed[[ref]][[test]])
 moduleSizes = mp$preservation$Z[[ref]][[test]][, 1];
 
-
-# ??ͼleave grey and gold modules out
 plotMods = !(modColors %in% c("grey", "gold"));
 # Text labels for points
-#text = modColors[plotMods];
 labs = match(modColors[plotMods], standardColors(unique(modColors)-2))
 # Auxiliary convenience variable
 plotData = cbind(mp$preservation$observed[[ref]][[test]][, 2], mp$preservation$Z[[ref]][[test]][, 2])
